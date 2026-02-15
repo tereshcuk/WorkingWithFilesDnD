@@ -1,0 +1,105 @@
+body {
+    font-family: Arial, sans-serif;
+}
+
+
+.board {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+
+}
+
+.column {
+    min-width: 200px;
+    height: 500px;
+    overflow-y: auto;
+    background-color: #FDFDFD;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, .1);
+    display: flex;
+    flex-direction: column; 
+   
+}
+
+.card {
+    display: flex;
+    background-color: rgb(134, 175, 232);
+    padding: 10px;
+    margin-bottom: 10px;
+    cursor: grab;
+    position: relative;
+    /*user-select: none;
+    transition: transform 0.2s ease-in-out;*/
+    word-wrap: break-word;    
+    /* word-break: break-all; */
+    width: 200px;    
+    max-width: 200px;     
+    justify-content: space-between;
+    overflow-y: auto;
+    line-height: 1.5;
+    font-size: 12px;
+}
+
+.placeholder {
+    background-color: #ccc;
+    width: 200px;    
+    height: 50px;    
+    transition: opacity 0.3s ease-in-out;
+}
+
+.delete-icon {
+    font-size: 1.5em;
+    color: rgb(218, 22, 22);
+    opacity: 0;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    cursor: pointer;
+}
+
+.card:hover .delete-icon {
+    opacity: 1;
+}
+
+
+/* Стили для кнопки открытия формы */
+.open-button {
+    padding: 10px 20px;    
+    border-radius: 5px;    
+    bottom: 0; 
+    float: left;
+    
+}
+
+/* Скрытие по умолчанию */
+.close-button {
+    float: right;    
+}
+
+.form-container {
+    display: none;     
+    padding: 20px;
+    border-radius: 5px;
+    background-color: rgb(134, 175, 232);
+   
+}
+
+.columnContent{
+    width: 250px;
+    height: 50%; 
+    border-color: rgb(134, 175, 232);
+
+}
+
+.inputName {   
+    width: 100%;
+    height: 50%;  
+}
+
+button {
+    cursor: pointer;
+    background-color: transparent; /*Прозрачный фон*/ 
+    border: none;
+}
