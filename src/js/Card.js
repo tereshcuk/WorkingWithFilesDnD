@@ -12,14 +12,12 @@ export default class Card {
     cardElement.dataset.id = this.id;
     cardElement.textContent = this.text;
 
-    // Добавляем кнопку удаления
     const deleteButton = document.createElement("span");
     deleteButton.className = "delete-icon";
-    deleteButton.textContent = "×"; //"\u274C";
+    deleteButton.textContent = "×";
     deleteButton.addEventListener("click", () => this.delete());
     cardElement.append(deleteButton);
 
-    // Перетаскивание
     cardElement.draggable = true;
     cardElement.addEventListener("dragstart", this.handleDragStart.bind(this));
     cardElement.addEventListener("dragend", this.handleDragEnd.bind(this));
@@ -33,13 +31,18 @@ export default class Card {
   }
 
   handleDragStart(event) {
+    
     event.dataTransfer.setData("text/source-card-id", this.id);
+    event.dataTransfer.setData("text/source-col-id", this.parentColumn.index);    
     event.dataTransfer.effectAllowed = "move";
-    event.target.style.cursor = "grabbing";
-    this.element.style.cursor = "grabbing";
+    this.parentColumn.draggedCard = this;
+
+    // Добавляем класс для CSS
+    this.element.classList.add("dragging");    
   }
 
   handleDragEnd(event) {
-    event.target.style.cursor = "grab";
+    // Убираем класс
+    this.element.classList.remove("dragging");
   }
 }

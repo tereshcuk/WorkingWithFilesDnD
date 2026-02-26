@@ -12,6 +12,31 @@ export default class Board {
     this.nextCardId = 1;
     this.oldColumn = null;
     this.initUI();
+    this.setupGlobalDragListeners();
+    this.draggedCard = null; // текущая перетаскиваемая карточка
+  }
+
+  setupGlobalDragListeners() {
+    // Добавляем класс к body при начале перетаскивания
+    document.addEventListener("dragstart", (e) => {
+      if (e.target.classList.contains("card")) {
+        document.body.classList.add("dragging-active");
+      }
+    });
+
+    // Убираем класс при окончании
+    document.addEventListener("dragend", (e) => {
+      if (e.target.classList.contains("card")) {
+        document.body.classList.remove("dragging-active");
+      }
+    });
+
+    // Удаляем слушатели при уничтожении доски
+    this.destroy = () => {
+      document.removeEventListener("dragstart", this.dragStartHandler);
+      document.removeEventListener("dragend", this.dragEndHandler);
+    };
+
   }
 
   initUI() {
@@ -20,16 +45,13 @@ export default class Board {
     const body = document.body;
     body.append(this.boardContainer);
 
-    // Получаем данные из localStorage
     const savedState = localStorage.getItem("cards")
       ? JSON.parse(localStorage.getItem("cards"))
       : {};
 
-    // Рендерим колонки и подгружаем ранее созданные карточки
     this.columns.forEach((col) => {
       this.boardContainer.append(col.render());
 
-      // Подгружаем старые карточки из localStorage
       Object.keys(savedState).forEach((key) => {
         const data = savedState[key];
         if (data.colIndex === col.index) {
@@ -37,7 +59,7 @@ export default class Board {
           col.addCard(card);
         }
       });
-      // Регистрация callback для уведомлений о переменах
+
       col.notifyParentOfChange = () => this.saveState();
     });
   }
@@ -45,7 +67,7 @@ export default class Board {
   saveState() {
     const state = {};
     this.columns.forEach((col) => {
-      col.cards.forEach((card) => {
+      col.cards.forEach((card) => {        
         state[card.id] = { id: card.id, text: card.text, colIndex: col.index };
       });
     });

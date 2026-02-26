@@ -4,13 +4,14 @@ export default class Column {
   constructor(index, title, boardInstance) {
     this.index = index;
     this.title = title;
-    this.cards = []; // массив карточек
+    this.cards = [];
     this.columnCard = null;
-    this.board = boardInstance; // ссылка на родительную доску
+    this.board = boardInstance;
     this.formContainer = null;
     this.openFormBtn = null;
     this.columnContent = document.createElement("div");
-    // this.render();
+    this.placeholder = null; // placeholder для визуализации
+    this.draggedCard = null; // текущая перетаскиваемая карточка
   }
 
   render() {
@@ -21,19 +22,14 @@ export default class Column {
     columnCard.id = `${this.index}`;
     columnCard.textContent = this.title;
 
-    // Добавляем существующие карточки
     this.cards.forEach((card) => {
       columnCard.append(card.render());
     });
 
-    // Обрабатываем событие drag-over и drop
     columnCard.addEventListener("dragover", this.handleDragOver.bind(this));
     columnCard.addEventListener("drop", this.handleDrop.bind(this));
-    columnCard.addEventListener(
-      "dragstart",
-      this.handleStartDragging.bind(this),
-    );
-    columnCard.addEventListener("dragend", this.handleEndDragging.bind(this));
+    columnCard.addEventListener("dragleave", this.handleDragLeave.bind(this));
+    columnCard.addEventListener("dragstart", this.handleDragStart.bind(this));
 
     const openFormBtn = document.createElement("button");
     openFormBtn.textContent = "+ Add task";
@@ -44,7 +40,6 @@ export default class Column {
     this.formContainer = document.createElement("div");
     this.formContainer.classList.add("form-container");
 
-    // Подписываемся на событие нажатия кнопки открытия формы
     this.openFormBtn.addEventListener("click", () => this.showForm());
 
     this.columnContent.append(columnCard);
@@ -55,39 +50,26 @@ export default class Column {
     return this.columnContent;
   }
 
-  /**
-   * Добавляет новую карточку в конец списка
-   */
   addNewCard(text) {
     if (text && text.trim()) {
-      // Генерируем уникальное ID для карточки
-      const uniqueID = Date.now().toString(); // Или можно использовать global counter
+      const uniqueID = Date.now().toString();
       const card = new Card(uniqueID, text, this);
       this.addCard(card);
       this.notifyParentOfChange();
     }
   }
 
-  /**
-   * Оповещает родительскую доску о внесении изменений
-   */
   notifyParentOfChange() {
     if (typeof this.board?.saveState === "function") {
       this.board.saveState();
     }
   }
 
-  /**
-   * Добавляет карточку в данную колонку
-   */
   addCard(card) {
     this.cards.push(card);
     this.columnCard.append(card.render());
   }
 
-  /**
-   * Удаляет карточку по её ID
-   */
   removeCard(cardId) {
     const index = this.cards.findIndex((card) => card.id === cardId);
     if (index > -1) {
@@ -99,80 +81,152 @@ export default class Column {
     }
   }
 
-  handleStartDragging(event) {
-    event.dataTransfer.setData("text/source-col-id", this.index);
-    event.target.style.cursor = "grabbing"; // Активируем закрытый хват
+  /**
+   * Находит позицию вставки на основе координат мыши
+   */
+  getInsertPosition(clientY) {
+    const cardElements = Array.from(
+      this.columnCard.querySelectorAll(".card:not(.dragging)")
+    );
+
+    // Если нет карточек, вставляем в начало
+    if (cardElements.length === 0) {
+      return { index: 0, element: null };
+    }
+
+    for (let i = 0; i < cardElements.length; i++) {
+      const cardElement = cardElements[i];
+      const rect = cardElement.getBoundingClientRect();
+      const cardMiddle = rect.top + rect.height / 2;
+
+      // Если курсор выше середины карточки - вставляем перед ней
+      if (clientY < cardMiddle) {
+        return { index: i, element: cardElement };
+      }
+    }
+
+    // Если дошли до конца - вставляем в конец
+    return { index: cardElements.length, element: null };
   }
 
   /**
-   * Обрабатывает событие drag over
+   * Создает или обновляет placeholder
    */
+  showPlaceholder(beforeElement, height) {
+    // Удаляем старый placeholder если есть
+    this.removePlaceholder();
+
+    // console.log(`showPlaceholder height: ${height}`);
+
+    // Создаем новый
+    this.placeholder = document.createElement("div");
+    this.placeholder.className = "placeholder";
+    this.placeholder.style.height = `${height}px`;
+
+    // Вставляем в нужную позицию
+    if (beforeElement) {
+      this.columnCard.insertBefore(this.placeholder, beforeElement);
+    } else {
+      this.columnCard.append(this.placeholder);
+    }
+  }
+
+  removePlaceholder() {
+    if (this.placeholder && this.placeholder.parentNode) {
+      this.placeholder.parentNode.removeChild(this.placeholder);      
+      this.placeholder = null;
+    }
+  }
+
+  handleDragStart(event) {
+
+    // const sourceCardID = event.dataTransfer.getData("text/source-card-id");
+    this.board.draggedCard = this.draggedCard;
+    // console.log(`1 handleDragStart sourceCardID: ${sourceCardID}`);
+  }
+
   handleDragOver(event) {
     event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
+    event.dataTransfer.dropEffect = "move";    
+    const sourceCardID = this.board.draggedCard.id;    
+
+    if (!sourceCardID) return;
+    
+    // Получаем высоту перетаскиваемой карточки
+    const draggedElement = document.querySelector(`[data-id="${sourceCardID}"]`);
+    const cardHeight = draggedElement ? draggedElement.offsetHeight : 50;
+
+    // Определяем позицию вставки
+    const position = this.getInsertPosition(event.clientY);
+
+    // Показываем placeholder
+    this.showPlaceholder(position.element, cardHeight);
   }
 
-  /**
-   * Обрабатывает событие drop
-   */
+  handleDragLeave(event) {
+    // Удаляем placeholder только если покидаем колонку полностью
+    // if (event.target === this.columnCard) {         
+      this.removePlaceholder();
+    // }
+  }
+
   handleDrop(event) {
+
     event.preventDefault();
+    this.removePlaceholder();
 
     const sourceColID = event.dataTransfer.getData("text/source-col-id");
-    const sourceCardID = event.dataTransfer.getData("text/source-card-id");
+    const sourceCardID = event.dataTransfer.getData("text/source-card-id");    
 
-    const sourceСol = this.board.columns.find(
+    const sourceCol = this.board.columns.find(
       (col) => col.index == sourceColID,
     );
-    const sourceCard = sourceСol.cards.find((card) => card.id == sourceCardID);
+    const sourceCard = sourceCol.cards.find((card) => card.id == sourceCardID);
 
-    // Определить координату относительной высоты относительно колонки
-    const newPositionRatio = event.offsetY / this.columnCard.clientHeight;
-    const targetIndex = Math.min(
-      Math.floor(newPositionRatio * this.cards.length),
-      this.cards.length,
-    );
+    if (!sourceCard) return;    
 
-    // Удаляем старую карточку из DOM и массива
+    // Определяем финальную позицию вставки
+    const position = this.getInsertPosition(event.clientY);
+    const targetIndex = position.index;
+
+    // Удаляем карточку из исходной колонки
     const elSourceCard = document.querySelector(`[data-id="${sourceCardID}"]`);
-    const sourceCardIndex = sourceСol.cards.indexOf(sourceCard);
+    const sourceCardIndex = sourceCol.cards.indexOf(sourceCard);
+
     if (sourceCardIndex >= 0) {
-      sourceСol.cards.splice(sourceCardIndex, 1);
-      sourceСol.columnCard.removeChild(elSourceCard);
+      sourceCol.cards.splice(sourceCardIndex, 1);
+      if (elSourceCard.parentNode) {
+        elSourceCard.parentNode.removeChild(elSourceCard);
+      }
     }
 
     // Вставляем карточку в новую позицию
     this.cards.splice(targetIndex, 0, sourceCard);
-    this.columnCard.insertBefore(
-      elSourceCard,
-      this.columnCard.children[targetIndex],
-    );
 
-    // Уведомляем родительскую доску о необходимости обновления
+    if (position.element) {
+      this.columnCard.insertBefore(elSourceCard, position.element);
+    } else {
+      this.columnCard.append(elSourceCard);
+    }
+
+    // Обновляем родительскую колонку карточки
+    sourceCard.parentColumn = this;
+    this.removePlaceholder();
+    this.board.draggedCard = null;
+
     this.notifyParentOfChange();
+    if (sourceCol !== this) {
+      sourceCol.notifyParentOfChange();
+    }
   }
 
-  handleEndDragging(event) {
-    event.target.style.cursor = "grab";
-  }
-
-  createPlaceholder(height) {
-    const placeholder = document.createElement("div");
-    placeholder.className = "placeholder";
-    placeholder.style.height = `${height}px`;
-    return placeholder;
-  }
-
-  // Функция для создания формы
   createForm() {
-    // Создаем элементы формы
     const form = document.createElement("form");
     const inputName = document.createElement("textarea");
     const labelName = document.createElement("label");
     const submitBtn = document.createElement("button");
     const closeBtn = document.createElement("button");
 
-    // Настраиваем элементы
     inputName.id = `name_${this.index}`;
     inputName.placeholder = "Add";
     inputName.rows = "4";
@@ -188,17 +242,21 @@ export default class Column {
     closeBtn.textContent = "×";
     closeBtn.classList.add("close");
 
-    // Собираем структуру формы
     form.append(labelName);
     form.append(inputName);
     form.append(submitBtn);
     form.append(closeBtn);
 
-    submitBtn.addEventListener("click", () =>
-      this.addNewCard(inputName.value.trim()),
-    );
-    closeBtn.addEventListener("click", () => {
-      this.formContainer.style.display = "none";
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      this.addNewCard(inputName.value.trim());
+      inputName.value = "";
+      this.hideForm();
+    });
+
+    closeBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.hideForm();
     });
 
     return form;
@@ -214,9 +272,7 @@ export default class Column {
     document.getElementById(`name_${this.index}`).focus();
   }
 
-  // Обработчик события закрытия формы
   hideForm() {
-    //preventDefault();
     this.openFormBtn.style.display = "block";
     this.formContainer.style.display = "none";
   }
